@@ -12,6 +12,7 @@ import (
 )
 
 var lastTrade trade.Offers
+var messageSent bool
 
 func init() {
 	tradeMgr.Completed(handleTradeComplete)
@@ -111,7 +112,10 @@ func handleTradeComplete(args trade.Args) {
 			return
 		}
 
-		ext.Send(in.SYSTEM_BROADCAST, []byte("Tracker is enabled, so this trade was tracked, you can disable by typing :tracker."))
+		if !messageSent {
+			ext.Send(in.SYSTEM_BROADCAST, []byte("Tracker is enabled, so this trade was tracked, you can disable by typing :tracker."))
+			messageSent = true
+		}
 	}
 
 }

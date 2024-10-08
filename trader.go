@@ -26,14 +26,6 @@ type TrackerData struct {
 	AddedByExtension bool   `json:"addedByExtension"`
 }
 
-type InventoryItem struct {
-	ItemName  string `json:"itemName"`
-	ItemType  string `json:"itemType"`
-	ItemClass string `json:"itemClass"`
-	ItemProps string `json:"itemProps"`
-	Count     int    `json:"count"`
-}
-
 func sendTrackerData(offers trade.Offers) {
 	itemCounts := make(map[string]map[string]int)
 
@@ -59,9 +51,9 @@ func sendTrackerData(offers trade.Offers) {
 			note := ""
 
 			if offers[1].Name == profileMgr.Name {
-				note = "Traded with " + offers[0].Name + " at " + currentTime + " at room "
+				note = "Traded with " + offers[0].Name + " at " + currentTime + " at room " + roomMgr.RoomInfo.Name
 			} else {
-				note = "Traded with " + offers[1].Name + " at " + currentTime + " at room "
+				note = "Traded with " + offers[1].Name + " at " + currentTime + " at room " + roomMgr.RoomInfo.Name
 			}
 
 			data := TrackerData{
@@ -101,6 +93,7 @@ func sendTrackerData(offers trade.Offers) {
 		}
 	}
 }
+
 func handleTradeComplete(args trade.Args) {
 	lastTrade = args.Offers
 

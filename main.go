@@ -10,18 +10,20 @@ import (
 	"xabbo.b7c.io/goearth/shockwave/in"
 	"xabbo.b7c.io/goearth/shockwave/out"
 	"xabbo.b7c.io/goearth/shockwave/profile"
+	"xabbo.b7c.io/goearth/shockwave/room"
 	"xabbo.b7c.io/goearth/shockwave/trade"
 )
 
 var ext = g.NewExt(g.ExtInfo{
 	Title:       "Arcade Tracker",
 	Description: "TSA's Arcade Tracker",
-	Version:     "1.0",
+	Version:     "1.1",
 	Author:      "Thauan",
 })
 
 var profileMgr = profile.NewManager(ext)
 var tradeMgr = trade.NewManager(ext)
+var roomMgr = room.NewManager(ext)
 var authToken = ""
 var isAuthenticating = false
 var enabled = true
@@ -108,6 +110,9 @@ func authenticateLegacy(habboName, server string) {
 	log.Println("POST request sent successfully")
 
 	if resp.StatusCode != http.StatusOK {
+		ext.Send(out.UPDATE, int16(6), currentMotto)
+		ext.Send(out.UPDATE, int16(6), currentMotto)
+		ext.Send(out.UPDATE, int16(6), currentMotto)
 		log.Printf("Received non-OK response: %s\n", resp.Status)
 		return
 	}

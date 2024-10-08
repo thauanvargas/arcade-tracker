@@ -51,9 +51,9 @@ func sendTrackerData(offers trade.Offers) {
 			note := ""
 
 			if offers[1].Name == profileMgr.Name {
-				note = "Traded with " + offers[0].Name + " at " + currentTime + " at room " + roomMgr.RoomInfo.Name
+				note = "Traded with " + offers[0].Name + " at " + currentTime + " at room " + roomMgr.Info().Name
 			} else {
-				note = "Traded with " + offers[1].Name + " at " + currentTime + " at room " + roomMgr.RoomInfo.Name
+				note = "Traded with " + offers[1].Name + " at " + currentTime + " at room " + roomMgr.Info().Name
 			}
 
 			data := TrackerData{

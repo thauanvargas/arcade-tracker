@@ -1,4 +1,4 @@
-# Arcade Tracker
+# Arcade Tracker - BETA
 
 Arcade Tracker is a extension to track your trades so you know your profits and losses in Habbo Hotel: Origins.
 

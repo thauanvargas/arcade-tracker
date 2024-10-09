@@ -4,7 +4,7 @@ Arcade Tracker is a extension to track your trades so you know your profits and 
 
 ## Current Arcade Track integrations:
 - [LegacyHabbo](https://legacyhabbo.me/) - This is the main API which tracks your trades, and authenticates you.
-- [TraderClub](https://traderclub.com.br/) - The Legacy API uses this API to get the prices of the furnitures
+- [TraderClub](https://traderclub.gg/) - The Legacy API uses this API to get the prices of the furnitures
 - [BobbaPRO](https://bobba.pro/) - The Legacy API uses this API to get the prices of the furnitures
 - [HabboAPI](https://origins.habbo.com/api/public/users?name={USERNAME}) - The Legacy API uses this API to verify your motto and authenticate you
 

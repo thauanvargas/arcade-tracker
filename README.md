@@ -30,7 +30,7 @@ I have a Arcade, can I have my own Tracker?
 
 ## Features
 
-- **User Authentication**: Authenticate users with the Website.
+- **User Authentication**: Authenticate users with the API.
 - **Trade Tracking**: Track and log details of trades, checking directly your profits and losses with known APIs such as TraderClub, BobbaPRO.
 
 

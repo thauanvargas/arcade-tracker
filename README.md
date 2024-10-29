@@ -16,6 +16,7 @@ Hello, so for doing a automated tracker we needed to make a login feature, so wh
 agree that you will must share this information to `https://legacyhabbo.me/`:
 - Your Habbo Username
 - Server you play at (COM, ES, BR)*
+- If you have the extension enabled, will track your trades itemdata, quantity, who you traded with and in which room
 
 *currently the tracker only works for COM.
 

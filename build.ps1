@@ -1,4 +1,4 @@
-$name="g-trader"
+$name="arcade-tracker"
 
 echo "Building for Windows..."
 $env:GOARCH="amd64"
@@ -18,4 +18,3 @@ foreach ($arch in @("arm64","amd64")) {
 echo "Creating universal binary for Mac..."
 lipo -create -output "bin/${name}-mac" bin/${name}_mac_arm64 bin/${name}_mac_amd64
 Remove-Item bin/* -Include "${name}_mac_*"
-Copy-Item config.txt bin

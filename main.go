@@ -76,15 +76,6 @@ func main() {
 			currentMotto = profileMgr.CustomData
 		})
 
-		tradeMgr.Updated(func(e trade.Args) {
-			if looping == false {
-				if addItemQty > 0 && addItem != "" {
-					looping = true
-					go loopTrader()
-				}
-			}
-		})
-
 	})
 
 	ext.Run()
@@ -115,11 +106,11 @@ func interceptTradeAddItem(e *g.Intercept) {
 
 	if addItemQty > 0 {
 		addItem = className
-		e.Block()
+		go loopTrader()
+		return
 	}
 
 	if checkQty {
-
 		for _, countItem := range counts {
 			if countItem.Class == className {
 				ext.Send(in.SYSTEM_BROADCAST, []byte(fmt.Sprintf("You have %d of %s.", countItem.Count, countItem.Name)))
@@ -147,6 +138,15 @@ func interceptTradeClose(e *g.Intercept) {
 }
 
 func loopTrader() {
+	if looping == false {
+		if addItemQty > 0 && addItem != "" {
+			looping = true
+			go loopTraderAddItems()
+		}
+	}
+}
+
+func loopTraderAddItems() {
 
 	for _, countItem := range counts {
 		if countItem.Class == addItem && addItemQty > countItem.Count {
@@ -161,15 +161,27 @@ func loopTrader() {
 	inventoryMgr.Items(func(item inventory.Item) bool {
 		if item.Class == addItem && addItemQty > 0 {
 			time.Sleep(time.Millisecond * 550)
-			tradeMgr.Offer(item.ItemId)
-			addItemQty--
-		}
 
-		if addItemQty == 0 {
-			ext.Send(out.GETSTRIP, []byte("next"))
-			addItem = ""
-		}
+			var items []trade.TradeItem
+			if tradeMgr.Offers.Tradee().UserId == profileMgr.UserId {
+				items = tradeMgr.Offers.Tradee().Items
+			} else {
+				items = tradeMgr.Offers.Trader().Items
+			}
 
+			itemFound := false
+			for _, tradeItem := range items {
+				if tradeItem.ItemId == item.ItemId {
+					itemFound = true
+					break
+				}
+			}
+
+			if !itemFound {
+				tradeMgr.Offer(item.ItemId)
+				addItemQty--
+			}
+		}
 		return addItemQty > 0
 	})
 	looping = false
@@ -208,7 +220,7 @@ func handleCommand(e *g.Intercept) {
 			return
 		}
 		if tradeAmount > 0 {
-			addItemQty = tradeAmount
+			addItemQty = tradeAmount - 1
 		}
 		e.Block()
 	}
@@ -221,7 +233,7 @@ func handleCommand(e *g.Intercept) {
 	}
 
 	if args[0] == ":count" {
-		log.Println("Starting count function")
+		counts = []CountItem{}
 		go scanInventory(true)
 		e.Block()
 	}

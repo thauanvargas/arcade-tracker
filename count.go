@@ -28,7 +28,7 @@ func printCountResults(counts []CountItem) {
 	}
 	var alert []string
 	for _, countItem := range counts {
-		alert = append(alert, fmt.Sprintf("%vx %v", countItem.Count, countItem.Class))
+		alert = append(alert, fmt.Sprintf("%s %vx", countItem.Name, countItem.Count))
 	}
 	if more > 0 {
 		alert = append(alert, fmt.Sprintf("... and %v more", more))

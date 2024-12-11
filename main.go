@@ -49,7 +49,8 @@ func main() {
 
 	ext.Intercept(out.TRADE_ADDITEM).With(interceptTradeAddItem)
 	ext.Intercept(in.TRADE_CLOSE).With(interceptTradeClose)
-	ext.Intercept(in.TRADE_COMPLETED_2).With(tradeCompleted)
+	ext.Intercept(in.ACTIVEOBJECT_ADD).With(interceptAddItem)
+	ext.Intercept(in.ACTIVEOBJECT_REMOVE).With(interceptRemoveItem)
 
 	ext.Connected(func(e g.ConnectArgs) {
 		authToken = ""
@@ -80,6 +81,30 @@ func main() {
 
 	ext.Run()
 
+}
+
+func interceptRemoveItem(e *g.Intercept) {
+	e.Packet.ReadString()
+	class := e.Packet.ReadString()
+
+	for i, countItem := range counts {
+		if countItem.Class == class {
+			counts[i].Count++
+			break
+		}
+	}
+}
+
+func interceptAddItem(e *g.Intercept) {
+	e.Packet.ReadString()
+	class := e.Packet.ReadString()
+
+	for i, countItem := range counts {
+		if countItem.Class == class {
+			counts[i].Count--
+			break
+		}
+	}
 }
 
 func interceptTradeAddItem(e *g.Intercept) {
@@ -122,13 +147,6 @@ func interceptTradeAddItem(e *g.Intercept) {
 		addItem = ""
 		addItemQty = 0
 		e.Block()
-	}
-}
-
-func tradeCompleted(e *g.Intercept) {
-	if !notifyTrade && authToken == "" {
-		ext.Send(in.SYSTEM_BROADCAST, []byte("Trade completed, but this trade wasn't tracked, if you want to track through webpage your wins/losses\nType :authenticate.\nYou then can check in https://tsarcade.com your trade history and use TC or Bobba Pro as a price API."))
-		notifyTrade = true
 	}
 }
 
@@ -232,9 +250,14 @@ func handleCommand(e *g.Intercept) {
 		e.Block()
 	}
 
-	if args[0] == ":count" {
+	if args[0] == ":scan" {
 		counts = []CountItem{}
 		go scanInventory(true)
+		e.Block()
+	}
+
+	if args[0] == ":count" {
+		printCountResults(counts)
 		e.Block()
 	}
 
@@ -246,6 +269,7 @@ func scanInventory(printResult bool) {
 	if err := context.Cause(scan); !errors.Is(err, inventory.ErrScanSuccess) {
 		return
 	}
+	ext.Send(in.SYSTEM_BROADCAST, []byte("Inventory scanned successfully."))
 	retrieveAndProcessItems(printResult)
 }
 

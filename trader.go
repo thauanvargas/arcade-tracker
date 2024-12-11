@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 	"xabbo.b7c.io/goearth/shockwave/in"
 	"xabbo.b7c.io/goearth/shockwave/trade"
@@ -34,14 +35,14 @@ func sendTrackerData(offers trade.Offers) {
 			if itemCounts[item.Class] == nil {
 				itemCounts[item.Class] = make(map[string]int)
 			}
-			itemCounts[item.Class][offer.Name]++
+			itemCounts[item.Class][strconv.Itoa(offer.UserId)]++
 		}
 	}
 
 	for className, owners := range itemCounts {
 		for owner, count := range owners {
 			result := "won"
-			if owner == profileMgr.Name {
+			if owner == strconv.Itoa(profileMgr.UserId) {
 				result = "lose"
 			}
 
@@ -49,10 +50,20 @@ func sendTrackerData(offers trade.Offers) {
 
 			note := ""
 
-			if offers[1].Name == profileMgr.Name {
-				note = "Traded with " + offers[0].Name + " at " + currentTime + " at room " + roomMgr.Info().Name
+			if offers[1].UserId == profileMgr.UserId {
+				entity := roomMgr.EntityByUserId(offers[0].UserId)
+				name := strconv.Itoa(offers[0].UserId)
+				if entity != nil {
+					name = entity.Name
+				}
+				note = "Traded with " + name + " at " + currentTime + " at room " + roomMgr.Info().Name
 			} else {
-				note = "Traded with " + offers[1].Name + " at " + currentTime + " at room " + roomMgr.Info().Name
+				entity := roomMgr.EntityByUserId(offers[1].UserId)
+				name := strconv.Itoa(offers[1].UserId)
+				if entity != nil {
+					name = entity.Name
+				}
+				note = "Traded with " + name + " at " + currentTime + " at room " + roomMgr.Info().Name
 			}
 
 			data := TrackerData{

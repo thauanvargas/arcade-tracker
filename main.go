@@ -2,12 +2,18 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 	g "xabbo.b7c.io/goearth"
 	"xabbo.b7c.io/goearth/shockwave/in"
+	"xabbo.b7c.io/goearth/shockwave/inventory"
 	"xabbo.b7c.io/goearth/shockwave/out"
 	"xabbo.b7c.io/goearth/shockwave/profile"
 	"xabbo.b7c.io/goearth/shockwave/room"
@@ -15,27 +21,40 @@ import (
 )
 
 var ext = g.NewExt(g.ExtInfo{
-	Title:       "Arcade Tracker",
-	Description: "TSA's Arcade Tracker",
-	Version:     "1.1",
+	Title:       "Trade Tracker",
+	Description: "TSA's Trade Tracker",
+	Version:     "2.0",
 	Author:      "Thauan",
 })
 
 var profileMgr = profile.NewManager(ext)
 var tradeMgr = trade.NewManager(ext)
 var roomMgr = room.NewManager(ext)
+var inventoryMgr = inventory.NewManager(ext)
 var authToken = ""
 var isAuthenticating = false
-var enabled = true
+var enabled = false
 var host string
 var currentMotto string
+var addItem string
+var addItemQty int
+var looping = false
+var notifyTrade = false
+var checkQty = false
+var counts []CountItem
 
 func main() {
 
 	ext.Intercept(out.CHAT, out.SHOUT, out.WHISPER).With(handleCommand)
 
+	ext.Intercept(out.TRADE_ADDITEM).With(interceptTradeAddItem)
+	ext.Intercept(in.TRADE_CLOSE).With(interceptTradeClose)
+	ext.Intercept(in.TRADE_COMPLETED_2).With(tradeCompleted)
+
 	ext.Connected(func(e g.ConnectArgs) {
 		authToken = ""
+
+		loadExternalTexts(e.Host)
 
 		if e.Host == "game-obr.habbo.com" {
 			host = "BR"
@@ -47,13 +66,23 @@ func main() {
 			host = "ES"
 		}
 
+		go scanInventory(false)
+
 		profileMgr.Updated(func(e profile.Args) {
 			if authToken != "" || isAuthenticating {
 				return
 			}
 			isAuthenticating = true
 			currentMotto = profileMgr.CustomData
-			go authenticateLegacy(profileMgr.Name, host)
+		})
+
+		tradeMgr.Updated(func(e trade.Args) {
+			if looping == false {
+				if addItemQty > 0 && addItem != "" {
+					looping = true
+					go loopTrader()
+				}
+			}
 		})
 
 	})
@@ -62,13 +91,97 @@ func main() {
 
 }
 
+func interceptTradeAddItem(e *g.Intercept) {
+
+	if looping {
+		e.Block()
+		return
+	}
+
+	furniId := e.Packet.ReadInt()
+
+	var className string
+	inventoryMgr.Items(func(item inventory.Item) bool {
+		if item.ItemId == furniId {
+			className = item.Class
+			return false
+		}
+		return true
+	})
+
+	if className == "" {
+		return
+	}
+
+	if addItemQty > 0 {
+		addItem = className
+		e.Block()
+	}
+
+	if checkQty {
+
+		for _, countItem := range counts {
+			if countItem.Class == className {
+				ext.Send(in.SYSTEM_BROADCAST, []byte(fmt.Sprintf("You have %d of %s.", countItem.Count, countItem.Name)))
+				break
+			}
+		}
+
+		checkQty = false
+		addItem = ""
+		addItemQty = 0
+		e.Block()
+	}
+}
+
+func tradeCompleted(e *g.Intercept) {
+	if !notifyTrade && authToken == "" {
+		ext.Send(in.SYSTEM_BROADCAST, []byte("Trade completed, but this trade wasn't tracked, if you want to track through webpage your wins/losses\nType :authenticate.\nYou then can check in https://tsarcade.com your trade history and use TC or Bobba Pro as a price API."))
+		notifyTrade = true
+	}
+}
+
+func interceptTradeClose(e *g.Intercept) {
+	addItem = ""
+	addItemQty = 0
+}
+
+func loopTrader() {
+
+	for _, countItem := range counts {
+		if countItem.Class == addItem && addItemQty > countItem.Count {
+			ext.Send(in.SYSTEM_BROADCAST, []byte("You don't have enough items to trade, you have "+strconv.Itoa(countItem.Count)+" "+countItem.Name+"."))
+			addItem = ""
+			addItemQty = 0
+			looping = false
+			return
+		}
+	}
+
+	inventoryMgr.Items(func(item inventory.Item) bool {
+		if item.Class == addItem && addItemQty > 0 {
+			time.Sleep(time.Millisecond * 550)
+			tradeMgr.Offer(item.ItemId)
+			addItemQty--
+		}
+
+		if addItemQty == 0 {
+			ext.Send(out.GETSTRIP, []byte("next"))
+			addItem = ""
+		}
+
+		return addItemQty > 0
+	})
+	looping = false
+}
+
 func handleCommand(e *g.Intercept) {
 	msg := e.Packet.ReadString()
 	args := strings.Split(msg, " ")
 	if args[0] == ":tracker" {
-
 		if authToken == "" {
 			ext.Send(in.SYSTEM_BROADCAST, []byte("You must authenticate first, type :authenticate to try authenticating."))
+			e.Block()
 			return
 		}
 
@@ -88,7 +201,73 @@ func handleCommand(e *g.Intercept) {
 		e.Block()
 	}
 
+	if args[0] == ":trade" {
+		tradeAmount, err := strconv.Atoi(args[1])
+		if err != nil {
+			ext.Send(in.SYSTEM_BROADCAST, []byte("Invalid trade amount. Please enter a valid number."))
+			return
+		}
+		if tradeAmount > 0 {
+			addItemQty = tradeAmount
+		}
+		e.Block()
+	}
+
+	if args[0] == ":qtd" {
+		addItem = ""
+		addItemQty = 0
+		checkQty = true
+		e.Block()
+	}
+
+	if args[0] == ":count" {
+		log.Println("Starting count function")
+		go scanInventory(true)
+		e.Block()
+	}
+
 }
+
+func scanInventory(printResult bool) {
+	scan := inventoryMgr.Scan()
+	<-scan.Done()
+	if err := context.Cause(scan); !errors.Is(err, inventory.ErrScanSuccess) {
+		return
+	}
+	retrieveAndProcessItems(printResult)
+}
+
+func retrieveAndProcessItems(printResult bool) {
+	var allItems []inventory.Item
+
+	inventoryMgr.Items(func(item inventory.Item) bool {
+		allItems = append(allItems, item)
+		name := getFullName(item)
+
+		itemIndex := make(map[string]int)
+		for i, countItem := range counts {
+			itemIndex[countItem.Class] = i
+		}
+
+		if i, found := itemIndex[item.Class]; found {
+			counts[i].Count++
+		} else {
+			counts = append(counts, CountItem{
+				Name:  name,
+				Count: 1,
+				Class: item.Class,
+			})
+			itemIndex[item.Class] = len(counts) - 1
+		}
+
+		return true
+	})
+
+	if printResult {
+		printCountResults(counts)
+	}
+}
+
 func authenticateLegacy(habboName, server string) {
 	log.Println("Starting authenticateLegacy function")
 	data := map[string]string{
@@ -187,6 +366,7 @@ func authenticateLegacy(habboName, server string) {
 		}
 
 		log.Println("Sent UPDATE with motto" + oldMotto)
+		enabled = true
 		ext.Send(in.SYSTEM_BROADCAST, []byte("You have been authenticated successfully in TSA Tracker and Tracker was enabled automatically, disable it by typing :tracker."))
 		ext.Send(out.UPDATE, int16(6), oldMotto)
 		ext.Send(out.UPDATE, int16(6), oldMotto)
